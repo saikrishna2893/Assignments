@@ -1,212 +1,257 @@
-#include <vector>
 #include <iostream>
+#include <vector>
+#include <memory>
 #include <map>
+#include <ctime>
+#include <thread> // For sleep
+#include <chrono> // For duration
 using namespace std;
 
-// Design an automated parking lot.
-// What we need as “design”:
-// • classes / enums, etc.
-// • fields, properties, functions
-// • signatures of functions
-// • instantiation
-// • interaction-sequence
-
-//Classes and Enums
-//VehicleType: Represents different types of vehicles that can park.
+// Enum for vehicle type
 enum class VehicleType {
     Motorcycle,
     Car,
     Truck
 };
-//ParkingSpotType: Represents different types of parking spots.
+
+// Enum for parking spot type
 enum class ParkingSpotType {
     Small,
     Medium,
     Large
 };
-//TicketStatus: Represents the status of a parking ticket.
+
+// Enum for ticket status
 enum class TicketStatus {
     Active,
     Paid,
     Lost
 };
-//Classes
-//Vehicle: Represents a vehicle entering the parking lot.
+
+// Vehicle class
 class Vehicle {
 private:
-    std::string licensePlate;
+    string licensePlate;
     VehicleType type;
 
 public:
-    Vehicle(std::string licensePlate, VehicleType type) 
-        : licensePlate(licensePlate), type(type) {}
+    Vehicle(string plate, VehicleType vType) : licensePlate(plate), type(vType) {}
 
-    std::string getLicensePlate() const;
-    VehicleType getType() const;
+    string getLicensePlate() const { return licensePlate; }
+    VehicleType getType() const { return type; }
 };
-//ParkingSpot: Represents a parking spot in the parking lot.
+
+// ParkingSpot class
 class ParkingSpot {
 private:
     int spotNumber;
     ParkingSpotType type;
     bool isOccupied;
-    Vehicle* parkedVehicle;
+    shared_ptr<Vehicle> parkedVehicle;
 
 public:
-    ParkingSpot(int spotNumber, ParkingSpotType type)
-        : spotNumber(spotNumber), type(type), isOccupied(false), parkedVehicle(nullptr) {}
+    ParkingSpot(int number, ParkingSpotType spotType) 
+        : spotNumber(number), type(spotType), isOccupied(false), parkedVehicle(nullptr) {}
 
-    int getSpotNumber() const;
-    ParkingSpotType getType() const;
-    bool getIsOccupied() const;
-    void parkVehicle(Vehicle* vehicle);
-    void removeVehicle();
+    int getSpotNumber() const { return spotNumber; }
+    ParkingSpotType getType() const { return type; }
+    bool getIsOccupied() const { return isOccupied; }
+
+    void parkVehicle(shared_ptr<Vehicle> vehicle) {
+        if (isOccupied) {
+            cout << "Spot already occupied!\n";
+            return;
+        }
+        parkedVehicle = vehicle;
+        isOccupied = true;
+        cout << "Vehicle " << vehicle->getLicensePlate() << " parked in spot " << spotNumber << ".\n";
+    }
+
+    void removeVehicle() {
+        if (!isOccupied) {
+            cout << "No vehicle to remove!\n";
+            return;
+        }
+        parkedVehicle = nullptr;
+        isOccupied = false;
+        cout << "Spot " << spotNumber << " is now free.\n";
+    }
 };
-//ParkingTicket: Represents a parking ticket issued to a vehicle.
+
+// ParkingTicket class
 class ParkingTicket {
 private:
     int ticketNumber;
-    std::string licensePlate;
+    string licensePlate;
+    VehicleType vehicleType;
     time_t entryTime;
     TicketStatus status;
 
 public:
-    ParkingTicket(int ticketNumber, std::string licensePlate, time_t entryTime)
-        : ticketNumber(ticketNumber), licensePlate(licensePlate), entryTime(entryTime), status(TicketStatus::Active) {}
+    ParkingTicket(int number, string plate, VehicleType type) 
+        : ticketNumber(number), licensePlate(plate), vehicleType(type), entryTime(time(nullptr)), status(TicketStatus::Active) {}
 
-    int getTicketNumber() const;
-    std::string getLicensePlate() const;
-    time_t getEntryTime() const;
-    TicketStatus getStatus() const;
-    void markAsPaid();
-    void markAsLost();
+    int getTicketNumber() const { return ticketNumber; }
+    string getLicensePlate() const { return licensePlate; }
+    VehicleType getVehicleType() const { return vehicleType; }
+    time_t getEntryTime() const { return entryTime; }
+    TicketStatus getStatus() const { return status; }
+
+    void markAsPaid() { status = TicketStatus::Paid; }
+    void markAsLost() { status = TicketStatus::Lost; }
 };
-//ParkingLot: Manages the overall parking lot.
+
+// ParkingLot class
 class ParkingLot {
 private:
-    std::vector<ParkingSpot> spots;
-    std::map<int, ParkingTicket> activeTickets;
+    vector<shared_ptr<ParkingSpot>> spots;
+    map<int, shared_ptr<ParkingTicket>> activeTickets;
     int nextTicketNumber;
 
 public:
-    ParkingLot(int numSmallSpots, int numMediumSpots, int numLargeSpots);
-    ParkingTicket issueTicket(Vehicle* vehicle);
-    void parkVehicle(ParkingTicket& ticket, Vehicle* vehicle);
-    void exitVehicle(ParkingTicket& ticket);
-    double calculateFee(ParkingTicket& ticket) const;
-    void payTicket(ParkingTicket& ticket);
-    ParkingSpot* findAvailableSpot(VehicleType type);
+    ParkingLot(int smallSpots, int mediumSpots, int largeSpots) : nextTicketNumber(1) {
+        int spotNumber = 1;
+        for (int i = 0; i < smallSpots; i++)
+            spots.push_back(shared_ptr<ParkingSpot>(new ParkingSpot(spotNumber++, ParkingSpotType::Small)));
+        for (int i = 0; i < mediumSpots; i++)
+            spots.push_back(shared_ptr<ParkingSpot>(new ParkingSpot(spotNumber++, ParkingSpotType::Medium)));
+        for (int i = 0; i < largeSpots; i++)
+            spots.push_back(shared_ptr<ParkingSpot>(new ParkingSpot(spotNumber++, ParkingSpotType::Large)));
+    }
+
+    shared_ptr<ParkingSpot> findAvailableSpot(VehicleType type) {
+        ParkingSpotType requiredType;
+        switch (type) {
+            case VehicleType::Motorcycle:
+                requiredType = ParkingSpotType::Small;
+                break;
+            case VehicleType::Car:
+                requiredType = ParkingSpotType::Medium;
+                break;
+            case VehicleType::Truck:
+                requiredType = ParkingSpotType::Large;
+                break;
+        }
+
+        for (auto& spot : spots) {
+            if (!spot->getIsOccupied() && spot->getType() == requiredType) {
+                return spot;
+            }
+        }
+
+        return nullptr;
+    }
+
+    shared_ptr<ParkingTicket> issueTicket(shared_ptr<Vehicle> vehicle) {
+        auto spot = findAvailableSpot(vehicle->getType());
+        if (!spot) {
+            cout << "No available spot for vehicle " << vehicle->getLicensePlate() << ".\n";
+            return nullptr;
+        }
+
+        auto ticket = shared_ptr<ParkingTicket>(new ParkingTicket(nextTicketNumber++, vehicle->getLicensePlate(), vehicle->getType()));
+        activeTickets[ticket->getTicketNumber()] = ticket;
+        spot->parkVehicle(vehicle);
+        return ticket;
+    }
+
+    void exitVehicle(shared_ptr<ParkingTicket> ticket) {
+        if (!ticket || ticket->getStatus() != TicketStatus::Active) {
+            cout << "Invalid or already processed ticket!\n";
+            return;
+        }
+
+        // Mark the ticket as paid and remove it from active tickets
+        ticket->markAsPaid();
+        activeTickets.erase(ticket->getTicketNumber());
+
+        // Calculate and display the fee
+        double fee = calculateFee(ticket);
+        cout << "------------------------\n";
+        cout << "Exit Details:\n";
+        cout << "Ticket Number: " << ticket->getTicketNumber() << "\n";
+        cout << "Vehicle Type: " << getVehicleTypeString(ticket->getVehicleType()) << "\n";
+        cout << "Vehicle License Plate: " << ticket->getLicensePlate() << "\n";
+        cout << "Total Payment: " << fee << " rupees\n";
+        cout << "------------------------\n";
+        cout << "Vehicle with ticket " << ticket->getTicketNumber() << " has exited.\n";
+    }
+
+    double calculateFee(shared_ptr<ParkingTicket> ticket) const {
+        time_t currentTime = time(nullptr);
+        double hoursParked = difftime(currentTime, ticket->getEntryTime()) / 3600;
+        return hoursParked * 10.0; // 10 rupees per hour
+    }
+
+    string getVehicleTypeString(VehicleType type) const {
+        switch (type) {
+            case VehicleType::Motorcycle: return "Motorcycle";
+            case VehicleType::Car: return "Car";
+            case VehicleType::Truck: return "Truck";
+            default: return "Unknown";
+        }
+    }
 };
 
-//PaymentProcessor: Handles payment for parking tickets.
+// PaymentProcessor class
 class PaymentProcessor {
 public:
-    static bool processPayment(double amount);
+    static bool processPayment(double amount) {
+        cout << "Processing payment of " << amount << " rupees...\n";
+        return true; // Simulate successful payment
+    }
 };
 
-
 int main() {
-    // Create a parking lot with 10 small spots, 10 medium spots, and 5 large spots
-    ParkingLot parkingLot(10, 10, 5);
+    // Create a parking lot with 1 small, 1 medium, and 1 large spot
+    ParkingLot parkingLot(1, 1, 1);
 
-    // Create a vehicle
-    Vehicle car("ABC123", VehicleType::Car);
+    // Create vehicles
+    auto motorcycle = shared_ptr<Vehicle>(new Vehicle("MOTO123", VehicleType::Motorcycle));
+    auto car = shared_ptr<Vehicle>(new Vehicle("CAR456", VehicleType::Car));
+    auto truck = shared_ptr<Vehicle>(new Vehicle("TRUCK789", VehicleType::Truck));
+    auto extraCar = shared_ptr<Vehicle>(new Vehicle("CAR999", VehicleType::Car));
 
-    // Issue a ticket to the vehicle
-    ParkingTicket ticket = parkingLot.issueTicket(&car);
+    // Test case 1: No vehicle parked
+    cout << "--- Test Case 1: No vehicle parked ---\n";
+    cout << "All spots are free.\n";
 
-    // Park the vehicle
-    parkingLot.parkVehicle(ticket, &car);
+    // Test case 2: Park vehicles
+    cout << "\n--- Test Case 2: Parking Vehicles ---\n";
+    auto motoTicket = parkingLot.issueTicket(motorcycle);
+    auto carTicket = parkingLot.issueTicket(car);
+    auto truckTicket = parkingLot.issueTicket(truck);
 
-    // Simulate vehicle exit
-    parkingLot.exitVehicle(ticket);
+    // Test case 3: No available spot
+    cout << "\n--- Test Case 3: No available spot ---\n";
+    auto extraCarTicket = parkingLot.issueTicket(extraCar);
 
-    // Calculate fee and pay
-    double fee = parkingLot.calculateFee(ticket);
-    PaymentProcessor::processPayment(fee);
-    parkingLot.payTicket(ticket);
+    // Introduce a delay to simulate parked duration
+    cout << "\nVehicles parked. Simulating time passage...\n";
+    this_thread::sleep_for(chrono::seconds(5)); // Simulate a 5-second parking duration
+
+    // Test case 4: Exit vehicles and process payments
+    cout << "\n--- Test Case 4: Exiting Vehicles ---\n";
+    if (motoTicket) {
+        double fee = parkingLot.calculateFee(motoTicket);
+        if (PaymentProcessor::processPayment(fee)) {
+            parkingLot.exitVehicle(motoTicket);
+        }
+    }
+
+    if (carTicket) {
+        double fee = parkingLot.calculateFee(carTicket);
+        if (PaymentProcessor::processPayment(fee)) {
+            parkingLot.exitVehicle(carTicket);
+        }
+    }
+
+    if (truckTicket) {
+        double fee = parkingLot.calculateFee(truckTicket);
+        if (PaymentProcessor::processPayment(fee)) {
+            parkingLot.exitVehicle(truckTicket);
+        }
+    }
 
     return 0;
 }
-
-// Fields, Properties, and Functions
-// Vehicle Class
-// Fields:
-
-// std::string licensePlate: License plate number of the vehicle.
-// VehicleType type: Type of vehicle.
-// Properties:
-
-// std::string getLicensePlate() const: Returns the license plate.
-// VehicleType getType() const: Returns the type of vehicle.
-// ParkingSpot Class
-// Fields:
-
-// int spotNumber: Unique identifier for the parking spot.
-// ParkingSpotType type: Type of parking spot (small, medium, large).
-// bool isOccupied: Indicates if the spot is occupied.
-// Vehicle* parkedVehicle: Pointer to the parked vehicle.
-// Properties:
-
-// int getSpotNumber() const: Returns the spot number.
-// ParkingSpotType getType() const: Returns the type of parking spot.
-// bool getIsOccupied() const: Returns the occupancy status.
-// Functions:
-
-// void parkVehicle(Vehicle* vehicle): Parks a vehicle in the spot.
-// void removeVehicle(): Removes a vehicle from the spot.
-// ParkingTicket Class
-// Fields:
-
-// int ticketNumber: Unique identifier for the ticket.
-// std::string licensePlate: License plate of the vehicle.
-// time_t entryTime: Time when the vehicle entered.
-// TicketStatus status: Current status of the ticket.
-// Properties:
-
-// int getTicketNumber() const: Returns the ticket number.
-// std::string getLicensePlate() const: Returns the license plate.
-// time_t getEntryTime() const: Returns the entry time.
-// TicketStatus getStatus() const: Returns the ticket status.
-// Functions:
-
-// void markAsPaid(): Marks the ticket as paid.
-// void markAsLost(): Marks the ticket as lost.
-// ParkingLot Class
-// Fields:
-
-// std::vector<ParkingSpot> spots: List of parking spots.
-// std::map<int, ParkingTicket> activeTickets: Map of active tickets.
-// int nextTicketNumber: Counter for the next ticket number.
-// Functions:
-
-// ParkingTicket issueTicket(Vehicle* vehicle): Issues a parking ticket.
-// void parkVehicle(ParkingTicket& ticket, Vehicle* vehicle): Parks a vehicle using a ticket.
-// void exitVehicle(ParkingTicket& ticket): Exits a vehicle from the lot.
-// double calculateFee(ParkingTicket& ticket) const: Calculates the parking fee.
-// void payTicket(ParkingTicket& ticket): Processes payment for the ticket.
-// ParkingSpot* findAvailableSpot(VehicleType type): Finds an available spot for a vehicle type.
-// PaymentProcessor Class
-// Functions:
-// static bool processPayment(double amount): Processes payment and returns success/failure.
-
-
-//Instantiation
-// A vehicle arrives at the parking lot and a ticket is issued.
-
-// The ParkingLot object calls the issueTicket(Vehicle* vehicle) method.
-// A ParkingTicket is generated with a unique ticket number and entry time.
-// The vehicle enters the parking lot and parks in an available spot.
-
-// findAvailableSpot(VehicleType type) is called to find a suitable spot.
-// parkVehicle(ParkingTicket& ticket, Vehicle* vehicle) is called to park the vehicle in the spot.
-// When the driver returns, they use the ticket to exit the parking lot.
-
-// exitVehicle(ParkingTicket& ticket) is called to remove the vehicle from the spot.
-// The parking fee is calculated based on the duration.
-
-// calculateFee(ParkingTicket& ticket) is called to compute the fee.
-// The driver pays the fee.
-
-// PaymentProcessor::processPayment(double amount) is called to handle the payment.
-// payTicket(ParkingTicket& ticket) marks the ticket as paid.
