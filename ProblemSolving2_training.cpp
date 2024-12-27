@@ -255,3 +255,43 @@ int main() {
 
     return 0;
 }
+//Sample output:
+/*--- Test Case 1: No vehicle parked ---
+All spots are free.
+
+--- Test Case 2: Parking Vehicles ---
+Vehicle MOTO123 parked in spot 1.
+Vehicle CAR456 parked in spot 2.
+Vehicle TRUCK789 parked in spot 3.
+
+--- Test Case 3: No available spot ---
+No available spot for vehicle CAR999.
+
+Vehicles parked. Simulating time passage...
+
+--- Test Case 4: Exiting Vehicles ---
+Processing payment of 0.0138889 rupees...
+------------------------
+Exit Details:
+Ticket Number: 1
+Vehicle Type: Motorcycle
+Vehicle License Plate: MOTO123
+Total Payment: 0.0138889 rupees
+------------------------
+Vehicle with ticket 1 has exited.
+Processing payment of 0.0138889 rupees...
+------------------------
+Exit Details:
+Ticket Number: 2
+Vehicle Type: Car
+Vehicle License Plate: CAR456
+Total Payment: 0.0138889 rupees
+------------------------
+Vehicle with ticket 2 has exited.
+Processing payment of 0.0138889 rupees...
+------------------------
+Exit Details:
+Ticket Number: 3
+Vehicle Type: Truck
+Total Payment: 0.0138889 rupees
+Vehicle with ticket 3 has exited.*/
